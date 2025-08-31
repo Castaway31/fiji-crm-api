@@ -1,19 +1,18 @@
-# main.py - Fixed for Render + FastAPI
+# main.py - FINAL WORKING VERSION
 from fastapi import FastAPI
 from sqlalchemy import create_engine, Column, Integer, String, Text
 from sqlalchemy.orm import sessionmaker, declarative_base
 from pydantic import BaseModel
-from typing import List
-import os
+from typing import List, Optional
 
 # --- Database Setup (SQLite) ---
-db_path = "crm.db"
-engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
+engine = create_engine("sqlite:///crm.db", connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+# SQLAlchemy Model (for database)
 class ClientDB(Base):
-    __tablename__ = 'clients'
+    __tablename__ = "clients"
     id = Column(Integer, primary_key=True)
     name = Column(String)
     island = Column(String)
@@ -26,22 +25,25 @@ class ClientDB(Base):
 
 Base.metadata.create_all(bind=engine)
 
-# --- Pydantic Model for API Responses ---
+# Pydantic Model (for API responses)
 class Client(BaseModel):
     id: int
     name: str
-    island: str | None = None
-    contact_person: str | None = None
-    phone: str | None = None
-    email: str | None = None
-    sales_manager: str | None = None
-    goal: str | None = None
-    notes: str | None = None
+    island: Optional[str] = None
+    contact_person: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    sales_manager: Optional[str] = None
+    goal: Optional[str] = None
+    notes: Optional[str] = None
+
+    class Config:
+        from_attributes = True  # Pydantic v2 (replaces orm_mode=True)
 
 app = FastAPI(title="Fiji CRM API")
 
-# --- API Endpoints ---
-@app.get("/")
+# --- API Routes ---
+@app.get("/", response_model=dict)
 def home():
     return {"message": "Fiji CRM API is live 🇫🇯"}
 
@@ -50,9 +52,7 @@ def get_clients():
     db = SessionLocal()
     try:
         clients = db.query(ClientDB).all()
-        return clients  # Pydantic will convert SQLAlchemy → JSON
-    except Exception as e:
-        return {"error": str(e)}
+        return clients  # FastAPI will convert SQLAlchemy → Pydantic
     finally:
         db.close()
 
@@ -65,7 +65,7 @@ def add_client(client: Client):
         db.add(db_client)
         db.commit()
         db.refresh(db_client)
-        return db_client  # FastAPI will convert back to Pydantic
+        return db_client  # FastAPI converts it back using response_model
     except Exception as e:
         db.rollback()
         return {"error": str(e)}
