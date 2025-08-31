@@ -1,17 +1,18 @@
-# main.py - FastAPI with SQLite + POST support
+# main.py - Fixed for Render + FastAPI
 from fastapi import FastAPI
-from sqlalchemy import create_engine, text, Column, Integer, String, Text
+from sqlalchemy import create_engine, Column, Integer, String, Text
 from sqlalchemy.orm import sessionmaker, declarative_base
+from pydantic import BaseModel
+from typing import List
 import os
 
-# Use SQLite
+# --- Database Setup (SQLite) ---
 db_path = "crm.db"
 engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# Define Client model
-class Client(Base):
+class ClientDB(Base):
     __tablename__ = 'clients'
     id = Column(Integer, primary_key=True)
     name = Column(String)
@@ -23,60 +24,48 @@ class Client(Base):
     goal = Column(Text)
     notes = Column(Text)
 
-# Create tables
 Base.metadata.create_all(bind=engine)
+
+# --- Pydantic Model for API Responses ---
+class Client(BaseModel):
+    id: int
+    name: str
+    island: str | None = None
+    contact_person: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    sales_manager: str | None = None
+    goal: str | None = None
+    notes: str | None = None
 
 app = FastAPI(title="Fiji CRM API")
 
+# --- API Endpoints ---
 @app.get("/")
 def home():
-    return {"message": "Fiji CRM API is live 🇫🇯 (SQLite)"}
+    return {"message": "Fiji CRM API is live 🇫🇯"}
 
-@app.get("/clients")
+@app.get("/clients", response_model=List[Client])
 def get_clients():
     db = SessionLocal()
     try:
-        result = db.query(Client).all()
-        clients = [
-            {
-                "id": c.id,
-                "name": c.name,
-                "island": c.island,
-                "contact_person": c.contact_person,
-                "phone": c.phone,
-                "email": c.email,
-                "sales_manager": c.sales_manager,
-                "goal": c.goal,
-                "notes": c.notes
-            }
-            for c in result
-        ]
-        return {"clients": clients}
+        clients = db.query(ClientDB).all()
+        return clients  # Pydantic will convert SQLAlchemy → JSON
     except Exception as e:
         return {"error": str(e)}
     finally:
         db.close()
 
-@app.post("/clients")
+@app.post("/clients", response_model=Client)
 def add_client(client: Client):
     db = SessionLocal()
     try:
-        # Remove ID if present
-        client.id = None
-        db.add(client)
+        # Convert Pydantic model to SQLAlchemy
+        db_client = ClientDB(**client.dict())
+        db.add(db_client)
         db.commit()
-        db.refresh(client)
-        return {"message": "Client added", "client": {
-            "id": client.id,
-            "name": client.name,
-            "island": client.island,
-            "contact_person": client.contact_person,
-            "phone": client.phone,
-            "email": client.email,
-            "sales_manager": client.sales_manager,
-            "goal": client.goal,
-            "notes": client.notes
-        }}
+        db.refresh(db_client)
+        return db_client  # FastAPI will convert back to Pydantic
     except Exception as e:
         db.rollback()
         return {"error": str(e)}
