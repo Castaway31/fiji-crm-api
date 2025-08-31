@@ -1,19 +1,16 @@
-# main.py - FastAPI with SQLite (works on Render)
+# main.py - FastAPI with SQLite + POST support
 from fastapi import FastAPI
 from sqlalchemy import create_engine, text, Column, Integer, String, Text
 from sqlalchemy.orm import sessionmaker, declarative_base
 import os
 
-# Use SQLite instead of PostgreSQL
+# Use SQLite
 db_path = "crm.db"
-if not os.path.exists(db_path):
-    print("Creating new SQLite database...")
-
 engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# Define tables
+# Define Client model
 class Client(Base):
     __tablename__ = 'clients'
     id = Column(Integer, primary_key=True)
@@ -56,6 +53,32 @@ def get_clients():
         ]
         return {"clients": clients}
     except Exception as e:
+        return {"error": str(e)}
+    finally:
+        db.close()
+
+@app.post("/clients")
+def add_client(client: Client):
+    db = SessionLocal()
+    try:
+        # Remove ID if present
+        client.id = None
+        db.add(client)
+        db.commit()
+        db.refresh(client)
+        return {"message": "Client added", "client": {
+            "id": client.id,
+            "name": client.name,
+            "island": client.island,
+            "contact_person": client.contact_person,
+            "phone": client.phone,
+            "email": client.email,
+            "sales_manager": client.sales_manager,
+            "goal": client.goal,
+            "notes": client.notes
+        }}
+    except Exception as e:
+        db.rollback()
         return {"error": str(e)}
     finally:
         db.close()
