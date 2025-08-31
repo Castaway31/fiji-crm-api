@@ -25,20 +25,19 @@ class ClientDB(Base):
 
 Base.metadata.create_all(bind=engine)
 
-# Pydantic Model (for API responses)
 class Client(BaseModel):
-    id: int
+    id: int | None = None  # ← Now optional
     name: str
-    island: Optional[str] = None
-    contact_person: Optional[str] = None
-    phone: Optional[str] = None
-    email: Optional[str] = None
-    sales_manager: Optional[str] = None
-    goal: Optional[str] = None
-    notes: Optional[str] = None
+    island: str | None = None
+    contact_person: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    sales_manager: str | None = None
+    goal: str | None = None
+    notes: str | None = None
 
     class Config:
-        from_attributes = True  # Pydantic v2 (replaces orm_mode=True)
+        from_attributes = True
 
 app = FastAPI(title="Fiji CRM API")
 
