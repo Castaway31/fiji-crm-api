@@ -1,12 +1,16 @@
-# main.py - Add PUT and DELETE
+# main.py - FastAPI + PostgreSQL
 from fastapi import FastAPI, HTTPException
-from sqlalchemy import create_engine, text, Column, Integer, String, Text
+from sqlalchemy import create_engine, Column, Integer, String, Text
 from sqlalchemy.orm import sessionmaker, declarative_base
 from pydantic import BaseModel
 from typing import List, Optional
+import os
 
-# SQLite setup
-engine = create_engine("sqlite:///crm.db", connect_args={"check_same_thread": False})
+# Use DATABASE_URL from environment (set by Render)
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:your_password@host.internal:5432/fiji_crm_db")
+
+# Connect to PostgreSQL
+engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -23,9 +27,10 @@ class ClientDB(Base):
     goal = Column(Text)
     notes = Column(Text)
 
+# Create table if not exists
 Base.metadata.create_all(bind=engine)
 
-# Pydantic model
+# Pydantic model for API
 class Client(BaseModel):
     id: int | None = None
     name: str
